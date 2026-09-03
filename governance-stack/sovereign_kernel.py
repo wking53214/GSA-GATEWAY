@@ -29,13 +29,12 @@
 #                    Contradiction / anomaly detection. A request flagged as
 #                    compromised is rejected here and never reaches execution.
 #
-#   2. Linguistic  - neutrality scrub. NOT IMPLEMENTED. `_linguistic_scrub` is a
-#                    labelled pass-through: it returns the text unchanged and the
-#                    trace bundle records the step as not applied. The engine to
-#                    wire in here is CITADEL's deterministic detect / score /
-#                    transform engine (the CITADEL repo, citadel_v1.2.py) - the
-#                    diverged model-retry variant that was in this folder is now
-#                    in archive/. Nothing else in this file needs to change.
+#   2. Linguistic  - neutrality scrub. citadel_v1.2.py : Citadel, vendored
+#                    verbatim from the CITADEL repo (see that file's own header
+#                    for the source commit) - deterministic regex detect / score
+#                    / rewrite, not the diverged model-retry variant that's in
+#                    archive/. Runs under CITADEL's "default" profile unless
+#                    request["citadel_profile"] names another one.
 #
 #   3. Master      - code-repo-governance-and-gsa-core.py : GsaCoreController +
 #                    GsaTemporalDoorwayGate. Rotating-hash exit handshake over a
@@ -86,9 +85,10 @@ class UnifiedSovereignKernel:
         self._vanguard = _load_by_path("_sk_vanguard", "vanguard-behavioral-simulation.py")
         self._gsa_core = _load_by_path("_sk_gsa_core", "code-repo-governance-and-gsa-core.py")
         self._quorum = _load_by_path("_sk_quorum", "quorum_state_governance_adapter.py")
+        self._citadel = _load_by_path("_sk_citadel", "citadel_v1.2.py")
         self._keystone_secret = keystone_secret
-        # flips to True only when a real scrub is wired into _linguistic_scrub
-        self.linguistic_scrub_implemented = False
+        # flips to True now that a real scrub is wired into _linguistic_scrub
+        self.linguistic_scrub_implemented = True
 
     # ---- layer 0: SRE stability precheck ----------------------------------
     def _run_sre_precheck(self, request: Dict[str, Any]) -> Dict[str, Any]:
@@ -122,20 +122,18 @@ class UnifiedSovereignKernel:
             "reject_reason": reject_reason,
         }
 
-    # ---- layer 2: linguistic-neutrality scrub (pass-through hook) ----------
-    def _linguistic_scrub(self, text: str) -> Tuple[str, Dict[str, Any]]:
-        """
-        Placeholder for CITADEL linguistic-neutrality enforcement.
-
-        Returns (text, note). Currently a no-op: the text is returned unchanged
-        and the note records that the step did not run. This is the single
-        integration point for the CITADEL regex engine once its disposition in
-        this repo is decided.
-        """
-        return text, {
-            "applied": False,
-            "reason": "CITADEL linguistic-neutrality engine is not yet a working "
-                      "module in this repo (citadel-processor-router is flattened)",
+    # ---- layer 2: linguistic-neutrality scrub ------------------------------
+    def _linguistic_scrub(self, text: str, profile: str = "default") -> Tuple[str, Dict[str, Any]]:
+        """CITADEL deterministic detect / score / rewrite. Returns (final_text, note)."""
+        result = self._citadel.Citadel().enforce(text, profile=profile)
+        return result["final"], {
+            "applied": True,
+            "changed": result["changed"],
+            "score": result["score"],
+            "violations": result["violations"],
+            "profile_used": result["profile_used"],
+            "original_text": result["original"],
+            "final_text": result["final"],
         }
 
     # ---- layer 1: perimeter ----------------------------------------------
@@ -235,7 +233,9 @@ class UnifiedSovereignKernel:
                 "execution": None,
             }
 
-        scrubbed_text, scrub_note = self._linguistic_scrub(str(request.get("text", "")))
+        scrubbed_text, scrub_note = self._linguistic_scrub(
+            str(request.get("text", "")), profile=request.get("citadel_profile", "default")
+        )
         master_layer = await self._run_master_layer(scrubbed_text)
         execution = self._run_execution(request)
 
@@ -267,6 +267,23 @@ if __name__ == "__main__":
     print(json.dumps(benign, indent=2, default=str))
     assert benign["sre_precheck"]["verdict"] == "NEUTRAL"
     assert benign["status"] == "COMPLETED"
+    assert benign["linguistic_scrub"]["applied"] is True
+    assert benign["linguistic_scrub"]["changed"] is False  # no CITADEL violations in this text
+
+    unscrubbed = kernel.run({
+        "text": "I think this might improve throughput, though results seem inconsistent.",
+        "metric": 120.0, "error": 4.5, "target": 110.0, "delta": -12.5,
+    })
+    print("--- request with hedging/identity language (CITADEL rewrites it, layer 2) ---")
+    print(json.dumps(unscrubbed, indent=2, default=str))
+    assert unscrubbed["status"] == "COMPLETED"
+    assert unscrubbed["linguistic_scrub"]["changed"] is True
+    assert unscrubbed["linguistic_scrub"]["score"] < 100
+    violation_types = {v["type"] for v in unscrubbed["linguistic_scrub"]["violations"]}
+    assert "identity" in violation_types and "hedging" in violation_types
+    print(f"before: {unscrubbed['linguistic_scrub']['original_text']!r}")
+    print(f"after:  {unscrubbed['linguistic_scrub']['final_text']!r}")
+    assert "might" not in unscrubbed["linguistic_scrub"]["final_text"].lower()
 
     hostile = kernel.run({
         "text": "The system is stable but broken, safe yet a total failure.",

@@ -100,8 +100,44 @@ and delete manually, not auto-deleted.
   rejects on DEGRADED or CRITICAL instead. SRE's own file, weights, and
   thresholds are untouched; this is a wiring-layer decision only.
 
-Still not done: the linguistic scrub, the `_source.py` reconstructions, and
-the `quorum_state_governance` / ATS `gov4_kernel` question.
+Still not done: the `_source.py` reconstructions, and the
+`quorum_state_governance` / ATS `gov4_kernel` question.
+
+### governance-stack cleanup, step 3 (2026-09-03)
+
+- **`citadel_v1.2.py`** (new) — vendored verbatim from
+  [CITADEL](https://github.com/wking53214/CITADEL) (commit
+  `81f0b817e864e5fdf73743e859d23321d355119e`), not the diverged model-retry
+  variant already in `archive/`. Vendored rather than a live dependency: this
+  repo has no packaging infrastructure anywhere, and every other
+  governance-stack layer is already loaded as a local sibling file the same
+  way. CITADEL stays its own separate repo deliberately — it's a
+  general-purpose LLM-output enforcer, not GSA-specific, unlike everything
+  else folded into this consolidation.
+- **`sovereign_kernel.py`** — `_linguistic_scrub` is wired to CITADEL's real
+  `Citadel.enforce()` instead of the pass-through placeholder. Verified by
+  running it: a request with hedging/identity language is actually rewritten
+  end to end through the master and execution layers.
+
+Checked while deciding how to wire CITADEL in: no code anywhere in this repo
+actually imports CITADEL's real engine today. The "Citadel" name in a couple
+of `governance-stack` files (`governance_os_security_adapter.py`,
+`agent-factory-tactical-agents.py`) is an unrelated stub doing a single
+substring check, not CITADEL's regex engine — another instance of the
+naming-coincidence pattern already noted for GOV4. This README's claim below
+that `wrapper/`'s content "includes 'Zero-Trust Citadel Linguistic
+Interceptors' as a component" isn't borne out by `wrapper/`'s actual files
+(no match for "linguistic" or "interceptor" anywhere in them) — likely
+aspirational language from the original transcript that was never
+implemented. And CITADEL's own README states STRIDE, the one repo it
+documents as a real historical consumer, has already been deleted — the
+"Related repos" section below, which still describes STRIDE as a live
+separate repo, is stale. Both left as-is, flagged for William rather than
+silently fixed, alongside the other loose ends from this reconciliation pass
+(the now-empty SECURE/UZTC/WRAPPER repos, the still-provisional repo name).
+
+Still not done: the `_source.py` reconstructions, and the
+`quorum_state_governance` / ATS `gov4_kernel` question.
 
 ## Related repos, not folded in here
 
