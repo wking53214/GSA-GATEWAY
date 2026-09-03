@@ -33,10 +33,11 @@ rename), so this name wasn't a blocker on doing the consolidation.
     pattern), `solvar_stability_governance_source.py`/`_adapter.py`/
     `_cleanup.py` (connects to "Fortress/SOLVAR" per DIT's own
     provenance notes), and `quorum_state_governance_source.py`/
-    `_adapter.py` (moved here provisionally as GSA-lineage content
-    regardless of the still-open question of whether it's also ATS's
-    missing `gov4_kernel` dependency — checked once already: the import
-    names didn't line up cleanly, see ATS's `ats_seam_inventory.md`).
+    `_adapter.py` (moved here as GSA-lineage content; confirmed 2026-09-03
+    it is *not* ATS's `gov4_kernel` — that question is closed, not open:
+    ATS recovered its own real `gov4_kernel.py` from an archived source
+    conversation and added it directly to that repo, confirmed present,
+    importable, and runnable — see ATS's `ats_seam_inventory.md`, C17).
   - `_source.py` files are the flattened raw pastes (preserved evidence,
     several do not parse); the matching `_adapter.py` files are the working
     reconstructions.
@@ -130,17 +131,11 @@ actually imports CITADEL's real engine today. The "Citadel" name in a couple
 of `governance-stack` files (`governance_os_security_adapter.py`,
 `agent-factory-tactical-agents.py`) is an unrelated stub doing a single
 substring check, not CITADEL's regex engine — another instance of the
-naming-coincidence pattern already noted for GOV4. This README's claim below
-that `wrapper/`'s content "includes 'Zero-Trust Citadel Linguistic
-Interceptors' as a component" isn't borne out by `wrapper/`'s actual files
-(no match for "linguistic" or "interceptor" anywhere in them) — likely
-aspirational language from the original transcript that was never
-implemented. And CITADEL's own README states STRIDE, the one repo it
-documents as a real historical consumer, has already been deleted — the
-"Related repos" section below, which still describes STRIDE as a live
-separate repo, is stale. Both left as-is, flagged for William rather than
-silently fixed, alongside the other loose ends from this reconciliation pass
-(the now-empty SECURE/UZTC/WRAPPER repos, the still-provisional repo name).
+naming-coincidence pattern already noted for GOV4. This also surfaced two
+stale claims in the "Related repos" section below (`wrapper/`'s unverified
+"Zero-Trust Citadel Linguistic Interceptors" claim, and STRIDE described as
+still live when CITADEL's own README confirms it's been deleted) — flagged
+here first, then corrected 2026-09-03 once reviewed.
 
 Still not done: the `_source.py` reconstructions, and the
 `quorum_state_governance` / ATS `gov4_kernel` question.
@@ -177,12 +172,21 @@ repos below, which are folded in here but still need manual deletion).
 ## Related repos, not folded in here
 
 - [CITADEL](https://github.com/wking53214/CITADEL) — a Deterministic LLM
-  Output Enforcement Engine, substantial enough to stay its own repo.
-  `wrapper/`'s content includes "Zero-Trust Citadel Linguistic
-  Interceptors" as a component, consuming CITADEL's enforcement logic.
-- [STRIDE](https://github.com/wking53214/STRIDE) (renamed from CLIP) — a
-  gateway system, also substantial enough to stay its own repo, also
-  consuming CITADEL's enforcement logic.
+  Output Enforcement Engine, kept as its own repo deliberately: a
+  general-purpose tool, not GSA-specific, unlike everything folded into
+  this consolidation. Vendored into `governance-stack/citadel_v1.2.py` and
+  wired into `sovereign_kernel.py`'s linguistic scrub (step 3 above).
+  `wrapper/`'s own files do not actually reference CITADEL — an earlier
+  version of this line claimed "Zero-Trust Citadel Linguistic Interceptors"
+  as a `wrapper/` component, but no match for "linguistic" or "interceptor"
+  exists anywhere in `wrapper/`'s files; that was aspirational language from
+  the original transcript that was never implemented. Corrected 2026-09-03.
+- [STRIDE](https://github.com/wking53214/STRIDE) (renamed from CLIP) — has
+  been deleted, per CITADEL's own README, which documents STRIDE as the one
+  repo that had a real historical dependency on CITADEL's engine (it
+  salvaged the `prohibited_verbs` check, since folded into
+  `citadel_v1.2.py`). An earlier version of this line described STRIDE as
+  still live; corrected 2026-09-03.
 
 The initial consolidation (commits through `f0934b1`) was a pure content
 move — files relocated, git history not preserved cross-repo, no code
