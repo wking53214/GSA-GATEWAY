@@ -17,11 +17,17 @@ rename), so this name wasn't a blocker on doing the consolidation.
   origin session for `secure/`'s sandbox-kernel content — keep
   `wrapper/artifact_3.py` as canonical; it has real line breaks where the
   copy under `secure/artifact_1.py` was flattened.
-- `governance-stack/` — governance-stack material pulled from two other
+- `governance-stack/` — governance-stack material pulled from three other
   repos:
   - From DGK: the `SovereignGovernanceStack` architecture sketches and a
     CITADEL-derived processor/router. All now under
     `governance-stack/archive/` — see the cleanup note below.
+  - From [VANGUARD](https://github.com/wking53214/VANGUARD) (folded in and
+    archived 2026-09-03): `vanguard-behavioral-simulation.py`, the working
+    reconstruction of VANGUARD's perimeter/behavioral kernel, wired into
+    `sovereign_kernel.py` as its perimeter layer since the step-1 cleanup;
+    the flattened original and a superseded wrapper sketch are preserved
+    under `governance-stack/archive/`.
   - From EDDP (formerly Data_files): `governance_os_security_source.py`/
     `_adapter.py` (a working `BaseGate`/`BoundaryGate`/`InvariantGate`
     pattern), `solvar_stability_governance_source.py`/`_adapter.py`/
@@ -138,6 +144,35 @@ silently fixed, alongside the other loose ends from this reconciliation pass
 
 Still not done: the `_source.py` reconstructions, and the
 `quorum_state_governance` / ATS `gov4_kernel` question.
+
+### VANGUARD folded in and archived (2026-09-03)
+
+Unlike CITADEL and STRIDE (kept separate deliberately — general-purpose
+tools, not GSA-specific), nothing argued for VANGUARD staying its own repo:
+its own README said it existed only because it was "moved here from DGK
+once this repo existed — previously kept there deliberately as 'raw
+VANGUARD material, not something that needs its own destination' until
+now," and nothing outside GSA-GATEWAY referenced it (unlike CITADEL, which
+STRIDE once depended on).
+
+Both of VANGUARD's files are now in `governance-stack/archive/`, with
+VANGUARD's own README preserved there in full:
+
+- `vanguard-behavioral-simulation-flattened.py` — the flattened source
+  `vanguard-behavioral-simulation.py` was reconstructed from during step 1.
+  Already reconstructed and wired before this fold-in; this is just its
+  last remaining home.
+- `vanguard-unified-governance-wrapper.py` — a non-running sketch of the
+  same "perimeter check, then delegate to a master kernel" pattern already
+  documented above (the `sovereign-governance-stack-v1/v2` files), just
+  under VANGUARD's own branding. Superseded by `sovereign_kernel.py` the
+  same way those were.
+
+The VANGUARD repo (`github.com/wking53214/VANGUARD`) is retired as of this
+fold-in. Its README now points here. The GitHub-level "archived" setting on
+that repo itself needs a manual action from William — no tool in this
+session can flip that setting (same limitation as the SECURE/UZTC/WRAPPER
+repos below, which are folded in here but still need manual deletion).
 
 ## Related repos, not folded in here
 
