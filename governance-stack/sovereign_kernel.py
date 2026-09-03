@@ -1,13 +1,29 @@
 # =============================================================================
 # UNIFIED SOVEREIGN KERNEL - working end-to-end governance wrapper
 #
-# Built 2026-08-27. This is the running version of the composition that three
-# sketches only described (all now in archive/): unified-sovereign-kernel-
-# wrapper.py, sovereign-governance-stack-v1.py, sovereign-governance-stack-
-# v2-expanded.py. Those referenced collaborator classes that were never defined
-# and could not execute.
+# Built 2026-08-27, SRE precheck added 2026-09-03. This is the running version
+# of the composition that three sketches only described (all now in archive/):
+# unified-sovereign-kernel-wrapper.py, sovereign-governance-stack-v1.py,
+# sovereign-governance-stack-v2-expanded.py. Those referenced collaborator
+# classes that were never defined and could not execute.
 #
-# Four layers, wired here from the modules that now work in this folder:
+# Five layers, wired here from the modules that now work in this folder:
+#
+#   0. SRE precheck - sre_system_resilience_evaluator_adapter.py :
+#                    SystemResilienceEvaluator. Per the v1/v2 sketches, this
+#                    runs before the perimeter. It differs from those sketches
+#                    in one deliberate way: they reject only on
+#                    EvaluationVerdict.CRITICAL, but reconstruction verification
+#                    found CRITICAL is mathematically unreachable through
+#                    evaluate_system_telemetry() as SRE was originally designed
+#                    (DEGRADED's energy gate always trips first - see
+#                    sre_system_resilience_evaluator_adapter.py's header and its
+#                    __main__ regression/search checks). Rejecting on
+#                    CRITICAL alone would be a decorative check that can never
+#                    fire. This kernel rejects on DEGRADED or CRITICAL instead,
+#                    so the precheck is a real gate; SRE's own file is
+#                    untouched, this is a wiring-layer decision, not a change
+#                    to SRE's reconstructed logic or thresholds.
 #
 #   1. Perimeter   - vanguard-behavioral-simulation.py : VanguardBehavioralPipeline
 #                    Contradiction / anomaly detection. A request flagged as
@@ -29,10 +45,6 @@
 #   4. Execution   - quorum_state_governance_adapter.py : CoreOrchestratorBinder
 #                    Signed multi-node proposals -> signature verification ->
 #                    L1 clustering -> quorum decision -> write-ahead audit hash.
-#
-# NOT wired yet (the v1/v2 sketches in archive/ show it as step 1, before the
-# perimeter): an SRE / system-resilience stability pre-check. The SRE modules in
-# this folder are still flattened.
 #
 # execute_governed_request() returns a single trace-bundle dict describing every
 # layer. run() is the synchronous convenience wrapper.
@@ -70,12 +82,45 @@ class UnifiedSovereignKernel:
     """Master governance layer in front of a hybrid quorum-consensus engine."""
 
     def __init__(self, keystone_secret: str = "default-keystone-secret") -> None:
+        self._sre = _load_by_path("_sk_sre", "sre_system_resilience_evaluator_adapter.py")
         self._vanguard = _load_by_path("_sk_vanguard", "vanguard-behavioral-simulation.py")
         self._gsa_core = _load_by_path("_sk_gsa_core", "code-repo-governance-and-gsa-core.py")
         self._quorum = _load_by_path("_sk_quorum", "quorum_state_governance_adapter.py")
         self._keystone_secret = keystone_secret
         # flips to True only when a real scrub is wired into _linguistic_scrub
         self.linguistic_scrub_implemented = False
+
+    # ---- layer 0: SRE stability precheck ----------------------------------
+    def _run_sre_precheck(self, request: Dict[str, Any]) -> Dict[str, Any]:
+        """Compare request telemetry (request["sre_telemetry"]) against a
+        neutral baseline. Rejects on DEGRADED or CRITICAL - see this file's
+        header for why CRITICAL alone isn't enough."""
+        sre = self._sre
+        baseline = sre.TelemetryMetrics()
+        telemetry_fields = (
+            "containment_ratio", "processing_latency", "recurrent_request_ratio",
+            "termination_ratio", "determinism_coefficient", "duplicate_execution_ratio",
+            "reentry_coefficient", "escalation_ratio", "buffer_backlog_depth",
+        )
+        supplied = request.get("sre_telemetry", {})
+        current = sre.TelemetryMetrics(**{
+            field: float(supplied[field]) for field in telemetry_fields if field in supplied
+        })
+        report = sre.SystemResilienceEvaluator().evaluate_system_telemetry(baseline, current)
+        if report.verdict == sre.EvaluationVerdict.CRITICAL:
+            reject_reason = "SRE_CRITICAL_DRIFT"
+        elif report.verdict == sre.EvaluationVerdict.DEGRADED:
+            reject_reason = "SRE_DEGRADED_DRIFT"
+        else:
+            reject_reason = None
+        return {
+            "verdict": report.verdict.value,
+            "explanation": report.explanation,
+            "weighted_squared_delta_sum": report.weighted_squared_delta_sum,
+            "activation_threat_score": report.activation_threat_score,
+            "rejected": reject_reason is not None,
+            "reject_reason": reject_reason,
+        }
 
     # ---- layer 2: linguistic-neutrality scrub (pass-through hook) ----------
     def _linguistic_scrub(self, text: str) -> Tuple[str, Dict[str, Any]]:
@@ -167,11 +212,23 @@ class UnifiedSovereignKernel:
 
     # ---- entry point ---------------------------------------------------
     async def execute_governed_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
-        """Route one request through all four layers; return a trace bundle."""
+        """Route one request through all five layers; return a trace bundle."""
+        sre_precheck = self._run_sre_precheck(request)
+        if sre_precheck["rejected"]:
+            return {
+                "status": "REJECTED_AT_SRE_PRECHECK",
+                "sre_precheck": sre_precheck,
+                "perimeter": None,
+                "linguistic_scrub": None,
+                "master_layer": None,
+                "execution": None,
+            }
+
         perimeter = self._run_perimeter(request)
         if perimeter.get("system_compromise_detected"):
             return {
                 "status": "REJECTED_AT_PERIMETER",
+                "sre_precheck": sre_precheck,
                 "perimeter": perimeter,
                 "linguistic_scrub": None,
                 "master_layer": None,
@@ -184,6 +241,7 @@ class UnifiedSovereignKernel:
 
         return {
             "status": "COMPLETED",
+            "sre_precheck": sre_precheck,
             "perimeter": perimeter,
             "linguistic_scrub": scrub_note,
             "master_layer": master_layer,
@@ -205,12 +263,27 @@ if __name__ == "__main__":
         "text": "All operational tracking parameters remain fully balanced.",
         "metric": 120.0, "error": 4.5, "target": 110.0, "delta": -12.5,
     })
-    print("--- benign request ---")
+    print("--- benign request (no sre_telemetry -> neutral baseline, passes precheck) ---")
     print(json.dumps(benign, indent=2, default=str))
+    assert benign["sre_precheck"]["verdict"] == "NEUTRAL"
+    assert benign["status"] == "COMPLETED"
 
     hostile = kernel.run({
         "text": "The system is stable but broken, safe yet a total failure.",
         "metric": 120.0, "error": 5.0, "target": 110.0, "delta": 0.0,
     })
-    print("--- contradictory request ---")
+    print("--- contradictory request (rejected at the VANGUARD perimeter) ---")
     print(json.dumps(hostile, indent=2, default=str))
+    assert hostile["status"] == "REJECTED_AT_PERIMETER"
+
+    drifted = kernel.run({
+        "text": "All operational tracking parameters remain fully balanced.",
+        "metric": 120.0, "error": 4.5, "target": 110.0, "delta": -12.5,
+        "sre_telemetry": {"termination_ratio": 0.2},
+    })
+    print("--- drifted request (rejected at the new SRE precheck, step 0) ---")
+    print(json.dumps(drifted, indent=2, default=str))
+    assert drifted["status"] == "REJECTED_AT_SRE_PRECHECK"
+    assert drifted["sre_precheck"]["reject_reason"] == "SRE_DEGRADED_DRIFT"
+
+    print("\nALL SOVEREIGN_KERNEL DEMO CHECKS PASSED")

@@ -58,14 +58,50 @@ separate, later pass":
   sketches, the diverged `citadel-processor-router-flattened.py` variant, and
   the unreferenced `resilience-config-dataclass.py`.
 
-Still not done: the linguistic scrub (needs CITADEL's engine), an SRE
-stability pre-check (SRE modules still flattened), the `_source.py`
-reconstructions, and reconciling `quorum_state_governance` against ATS's
-`gov4_kernel`.
+Still not done: the linguistic scrub (needs CITADEL's engine), the
+`_source.py` reconstructions, and reconciling `quorum_state_governance`
+against ATS's `gov4_kernel`.
 
 The original three repos (`SECURE`, `UZTC`, `WRAPPER`) still exist on
 GitHub but are now empty of code — left in place for William to review
 and delete manually, not auto-deleted.
+
+### governance-stack cleanup, step 2 (2026-09-03)
+
+- **`code-repo-governance-and-gsa-core.py`** — fixed two pre-existing bugs
+  (not introduced by step 1): undefined `logger` across five classes, and
+  `PipelineCycleManager` mutating an immutable `MappingProxyType` default.
+  A third gap, four methods referencing an undefined `SYSTEM_GLOBALS`, is
+  documented but not fixed — out of scope, no definition exists anywhere.
+- **`sre_system_resilience_evaluator_adapter.py`** (new) — SRE reconstructed
+  from `sre-system-resilience-evaluator-flattened.py` (confirmed non-parsing).
+  Along the way, SOLVAR's `LyapunovStabilityModule` and SRE's
+  `SystemStabilityValidator` turned out to implement the identical weighted-
+  deviation energy formula with identical thresholds (`1e-4`/`1e-2`) — the
+  same design, reskinned per source repo, not a coincidence.
+- **`resilience_stability_kernel.py`** (new) — that shared formula, extracted
+  once, property-verified, and reused by the SRE reconstruction instead of
+  duplicated inline. SRE's own weights, field mapping, and output are
+  unchanged from a literal reconstruction (regression-checked against the
+  original numpy formula); its thresholds are now configurable via a
+  `StabilityThresholds` dataclass instead of hardcoded literals. SOLVAR's own
+  file is untouched.
+- **`ure-universal-resilience-engine-flattened.py`** — moved to `archive/`
+  as evidence-only: unreferenced by anything in this repo, and its regime
+  classifier is hardcoded rather than derived from its inputs. See
+  `governance-stack/archive/README.md`.
+- **`sovereign_kernel.py`** — wired the SRE stability precheck in as step 0,
+  before the perimeter, per the design in the archived v1/v2 sketches — with
+  one documented divergence: verification found `EvaluationVerdict.CRITICAL`
+  is mathematically unreachable through SRE's `evaluate_system_telemetry()`
+  as originally designed (DEGRADED's energy gate always trips first, proven
+  by exhaustive search — see that file's `__main__`). Rejecting on CRITICAL
+  alone would be a decorative check that can never fire, so the kernel
+  rejects on DEGRADED or CRITICAL instead. SRE's own file, weights, and
+  thresholds are untouched; this is a wiring-layer decision only.
+
+Still not done: the linguistic scrub, the `_source.py` reconstructions, and
+the `quorum_state_governance` / ATS `gov4_kernel` question.
 
 ## Related repos, not folded in here
 

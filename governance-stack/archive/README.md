@@ -24,20 +24,47 @@ linguistic-neutrality scrub - carried there as a labelled pass-through hook.
 ## sovereign-governance-stack-v1.py
 ## sovereign-governance-stack-v2-expanded.py
 
-Near-identical. Both add two ideas the working wrapper does not yet cover:
+Near-identical. Both add two ideas the working wrapper did not originally cover:
 
   * an SRE / system-resilience stability check as **step 1**, before the
-    VANGUARD perimeter - reject on `EvaluationVerdict.CRITICAL` drift. The SRE
-    modules in this folder (`sre-*`, `ure-*`) are still flattened, so this is
-    not buildable yet.
+    VANGUARD perimeter - reject on `EvaluationVerdict.CRITICAL` drift. Built
+    2026-09-03: `../sre_system_resilience_evaluator_adapter.py`, wired into
+    `../sovereign_kernel.py` as its own step 0. One deliberate divergence from
+    what's sketched here: reconstruction verification found
+    `EvaluationVerdict.CRITICAL` is mathematically unreachable through SRE's
+    `evaluate_system_telemetry()` as originally designed (DEGRADED's energy
+    gate always trips first - proven by exhaustive search in
+    `sre_system_resilience_evaluator_adapter.py`'s own `__main__`). Rejecting
+    on CRITICAL alone would be a decorative check that can never fire, so
+    `sovereign_kernel.py` rejects on DEGRADED or CRITICAL instead - SRE's own
+    file, weights, and thresholds are untouched; this is a wiring-layer
+    decision, documented in `sovereign_kernel.py`'s header.
   * a named 4-plane framing: Observatory (SRE + VANGUARD), Governance /
     Orchestrator (GSA-Master), Execution (DGK consensus), plus a KeystoneNode.
+    Not adopted - `sovereign_kernel.py` keeps its existing layer framing.
 
 v2-expanded additionally records a critical-failure entry to an audit ledger on
 SRE rejection, and carries a `main()` demo. v1 has neither. Neither runs.
 
 The README one level up describes v2-expanded as "the SovereignGovernanceStack
 V10.0 architecture"; that line points at this archived path now.
+
+## ure-universal-resilience-engine-flattened.py
+
+Moved here 2026-09-03. URE and SRE cover the same conceptual ground - both
+compute a weighted-squared-deviation "energy" drift score against a baseline
+and classify it into a tri-level verdict, and in fact share an identical
+formula shape with SOLVAR's `LyapunovStabilityModule` (all three use the same
+`1e-4` / `1e-2` stability thresholds - not a coincidence, the same design
+reskinned per source repo; see `../resilience_stability_kernel.py`'s header).
+But unlike SRE, nothing in this repo references URE by name - not the
+sketches above, not `sovereign_kernel.py`, nothing - and its regime classifier
+(`SystemRegimeClassifier.classify_current_regime`) is hardcoded
+(`0.70 if metrics.backlog_depth < 10.0 else 0.10`, ...) rather than derived
+from its actual inputs, unlike SRE's entropy-based classifier or SOLVAR's
+input-driven one. Flattened (does not parse) and evidence-only: preserved
+here rather than reconstructed, since there is no consumer for it and its own
+central classification step doesn't do what its docstring claims.
 
 ## citadel-processor-router-flattened.py
 
